@@ -1,0 +1,1009 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Disease Spread Simulation - Barabási-Albert Network</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: #333;
+            overflow-x: hidden;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        header {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        h1 {
+            color: #667eea;
+            margin-bottom: 5px;
+        }
+
+        .subtitle {
+            color: #666;
+            font-size: 14px;
+        }
+
+        .controls-panel {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        .control-group {
+            display: inline-block;
+            margin-right: 20px;
+            margin-bottom: 10px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 600;
+            color: #555;
+            font-size: 13px;
+        }
+
+        input[type="number"], input[type="range"] {
+            padding: 8px;
+            border: 2px solid #ddd;
+            border-radius: 5px;
+            width: 150px;
+            font-size: 14px;
+        }
+
+        input[type="range"] {
+            width: 200px;
+        }
+
+        button {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 14px;
+            transition: all 0.3s;
+            margin-right: 10px;
+            margin-bottom: 10px;
+        }
+
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #5568d3;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(102, 126, 234, 0.3);
+        }
+
+        .btn-success {
+            background: #48bb78;
+            color: white;
+        }
+
+        .btn-success:hover {
+            background: #38a169;
+            transform: translateY(-2px);
+        }
+
+        .btn-danger {
+            background: #f56565;
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background: #e53e3e;
+            transform: translateY(-2px);
+        }
+
+        .btn-secondary {
+            background: #718096;
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            background: #4a5568;
+            transform: translateY(-2px);
+        }
+
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none !important;
+        }
+
+        .main-content {
+            display: grid;
+            grid-template-columns: 1fr 300px;
+            gap: 20px;
+        }
+
+        .visualization-panel {
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            position: relative;
+            overflow: hidden;
+            height: 700px;
+        }
+
+        #network-graph {
+            width: 100%;
+            height: 700px;
+            border-radius: 10px;
+        }
+
+        .stats-panel {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            height: fit-content;
+        }
+
+        .stat-item {
+            margin-bottom: 15px;
+            padding: 15px;
+            background: #f7fafc;
+            border-radius: 8px;
+            border-left: 4px solid #667eea;
+        }
+
+        .stat-label {
+            font-size: 12px;
+            color: #666;
+            text-transform: uppercase;
+            font-weight: 600;
+            margin-bottom: 5px;
+        }
+
+        .stat-value {
+            font-size: 24px;
+            font-weight: 700;
+            color: #2d3748;
+        }
+
+        .infection-bar {
+            width: 100%;
+            height: 20px;
+            background: #e2e8f0;
+            border-radius: 10px;
+            overflow: hidden;
+            margin-top: 10px;
+        }
+
+        .infection-progress {
+            height: 100%;
+            background: linear-gradient(90deg, #f56565 0%, #c53030 100%);
+            transition: width 0.3s;
+        }
+
+        .legend {
+            margin-top: 20px;
+            padding: 15px;
+            background: #f7fafc;
+            border-radius: 8px;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .legend-color {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            margin-right: 10px;
+            border: 2px solid #333;
+        }
+
+        .status-message {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            padding: 10px 20px;
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 5px;
+            font-weight: 600;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            z-index: 10;
+        }
+        
+        .node-info {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            padding: 15px 20px;
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 8px;
+            font-weight: 600;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+            z-index: 10;
+            min-width: 200px;
+            display: none;
+        }
+        
+        .node-info .info-title {
+            font-size: 14px;
+            color: #667eea;
+            margin-bottom: 8px;
+            border-bottom: 2px solid #667eea;
+            padding-bottom: 5px;
+        }
+        
+        .node-info .info-item {
+            font-size: 13px;
+            margin: 5px 0;
+            color: #2d3748;
+        }
+        
+        .node-info .info-label {
+            font-weight: 600;
+            color: #666;
+        }
+        
+        .node-info .status-healthy {
+            color: #48bb78;
+            font-weight: bold;
+        }
+        
+        .node-info .status-infected {
+            color: #f56565;
+            font-weight: bold;
+        }
+
+        .loading {
+            color: #667eea;
+        }
+
+        .error {
+            color: #f56565;
+        }
+
+        .success {
+            color: #48bb78;
+        }
+
+        /* Graph styles */
+        .node {
+            stroke: #333;
+            stroke-width: 1.5px;
+            cursor: pointer;
+            transition: r 0.5s, fill 0.5s, stroke-width 0.3s;
+        }
+
+        .node.healthy {
+            fill: #48bb78;
+        }
+
+        .node.infected {
+            fill: #f56565;
+            animation: pulse 1s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% {
+                filter: brightness(1);
+            }
+            50% {
+                filter: brightness(1.3);
+            }
+        }
+
+        .node.hub {
+            stroke-width: 2.5px;
+            stroke: #2d3748;
+        }
+
+        .node:hover {
+            stroke: #ffd700;
+            stroke-width: 4px;
+            filter: drop-shadow(0 0 5px #ffd700);
+        }
+
+        .node.newly-infected {
+            animation: infect-pulse 1s ease-out;
+        }
+
+        @keyframes infect-pulse {
+            0% {
+                r: 5;
+                fill: #48bb78;
+            }
+            50% {
+                r: 20;
+                fill: #f56565;
+                filter: brightness(1.5);
+            }
+            100% {
+                fill: #f56565;
+            }
+        }
+
+        .link {
+            stroke: #999;
+            stroke-opacity: 0.3;
+            stroke-width: 1px;
+            transition: stroke-opacity 0.3s, stroke-width 0.3s;
+        }
+
+        .link.highlighted {
+            stroke: #ffd700;
+            stroke-opacity: 1 !important;
+            stroke-width: 4px !important;
+            filter: drop-shadow(0 0 4px #ffd700);
+        }
+
+        .node-label {
+            font-size: 10px;
+            font-weight: bold;
+            fill: #2d3748;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.3s;
+            text-shadow: 0 0 3px white, 0 0 3px white, 0 0 3px white;
+        }
+
+        .node-label.visible {
+            opacity: 1;
+        }
+
+        .minimap {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            width: 150px;
+            height: 150px;
+            background: rgba(255, 255, 255, 0.9);
+            border: 2px solid #667eea;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+        }
+
+        .minimap-viewport {
+            stroke: #667eea;
+            stroke-width: 2;
+            fill: rgba(102, 126, 234, 0.2);
+        }
+
+        @media (max-width: 1024px) {
+            .main-content {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🦠 Disease Spread Simulation</h1>
+            <p class="subtitle">Interactive Barabási-Albert Scale-Free Network | DSA Project</p>
+        </header>
+
+        <div class="controls-panel">
+            <div class="control-group">
+                <label>Number of Nodes</label>
+                <input type="number" id="nNodes" value="500" min="100" max="2000" step="100">
+            </div>
+            <div class="control-group">
+                <label>Edges per Node (m)</label>
+                <input type="number" id="mEdges" value="3" min="1" max="10">
+            </div>
+            <div class="control-group">
+                <label>Infection Probability: <span id="probValue">0.30</span></label>
+                <input type="range" id="infectionProb" min="0" max="1" step="0.05" value="0.30">
+            </div>
+            <div class="control-group">
+                <label>Initial Infected</label>
+                <input type="number" id="numInitial" value="5" min="1" max="50">
+            </div>
+            <br>
+            <button class="btn-primary" onclick="initializeNetwork()">Generate Network</button>
+            <button class="btn-success" id="startBtn" onclick="startSimulation()" disabled>Start Simulation</button>
+            <button class="btn-secondary" id="stepBtn" onclick="simulationStep()" disabled>Single Step</button>
+            <button class="btn-secondary" id="autoBtn" onclick="toggleAutoPlay()" disabled>Auto Play</button>
+            <button class="btn-danger" onclick="resetSimulation()">Reset</button>
+        </div>
+
+        <div class="main-content">
+            <div class="visualization-panel">
+                <div id="statusMessage" class="status-message" style="display: none;"></div>
+                <div id="nodeInfo" class="node-info">
+                    <div class="info-title">Node Information</div>
+                    <div class="info-item"><span class="info-label">Node ID:</span> <span id="infoNodeId">-</span></div>
+                    <div class="info-item"><span class="info-label">Status:</span> <span id="infoStatus">-</span></div>
+                    <div class="info-item"><span class="info-label">Degree:</span> <span id="infoDegree">-</span></div>
+                    <div class="info-item"><span class="info-label">Neighbors:</span> <span id="infoNeighbors">-</span></div>
+                </div>
+                <div id="network-graph"></div>
+            </div>
+
+            <div class="stats-panel">
+                <h3 style="margin-bottom: 15px; color: #667eea;">📊 Statistics</h3>
+                
+                <div class="stat-item">
+                    <div class="stat-label">Time Step</div>
+                    <div class="stat-value" id="timeStep">0</div>
+                </div>
+
+                <div class="stat-item">
+                    <div class="stat-label">Total Nodes</div>
+                    <div class="stat-value" id="totalNodes">0</div>
+                </div>
+
+                <div class="stat-item">
+                    <div class="stat-label">Infected</div>
+                    <div class="stat-value" id="infectedCount" style="color: #f56565;">0</div>
+                    <div class="infection-bar">
+                        <div class="infection-progress" id="infectionProgress" style="width: 0%;"></div>
+                    </div>
+                </div>
+
+                <div class="stat-item">
+                    <div class="stat-label">Healthy</div>
+                    <div class="stat-value" id="healthyCount" style="color: #48bb78;">0</div>
+                </div>
+
+                <div class="stat-item">
+                    <div class="stat-label">Infection Rate</div>
+                    <div class="stat-value" id="infectionRate">0%</div>
+                </div>
+
+                <div class="legend">
+                    <h4 style="margin-bottom: 10px; color: #2d3748;">Legend</h4>
+                    <div class="legend-item">
+                        <div class="legend-color" style="background: #48bb78;"></div>
+                        <span>Healthy Node</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color" style="background: #f56565;"></div>
+                        <span>Infected Node</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color" style="background: #667eea; border-width: 3px;"></div>
+                        <span>Hub Node (High Degree)</span>
+                    </div>
+                </div>
+
+                <div style="margin-top: 20px; padding: 15px; background: #fff5f5; border-radius: 8px; border-left: 4px solid #f56565;">
+                    <strong>💡 Instructions:</strong>
+                    <ul style="margin-top: 10px; margin-left: 20px; font-size: 13px; line-height: 1.6;">
+                        <li>🦠 Disease spreads automatically to neighbors</li>
+                        <li>👆 Click any node to infect it manually</li>
+                        <li>🖱️ Drag nodes to reposition them</li>
+                        <li>🔍 Scroll to zoom in/out</li>
+                        <li>✋ Click and drag background to pan</li>
+                        <li>🎯 Hover over nodes to highlight neighbors</li>
+                        <li>⌨️ Keyboard: Space=step, P=play, R=reset</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Global state
+        let graphData = null;
+        let simulation = null;
+        let svg = null;
+        let g = null;
+        let zoom = null;
+        let linkElements = null;
+        let nodeElements = null;
+        let autoPlayInterval = null;
+        let isAutoPlaying = false;
+
+        // Update probability display
+        document.getElementById('infectionProb').addEventListener('input', (e) => {
+            document.getElementById('probValue').textContent = parseFloat(e.target.value).toFixed(2);
+        });
+
+        // Show status message
+        function showStatus(message, type = 'loading') {
+            console.log('Status:', message, type);
+            const statusDiv = document.getElementById('statusMessage');
+            statusDiv.textContent = message;
+            statusDiv.className = `status-message ${type}`;
+            statusDiv.style.display = 'block';
+            
+            if (type !== 'loading') {
+                setTimeout(() => {
+                    statusDiv.style.display = 'none';
+                }, 3000);
+            }
+        }
+
+        // Initialize network
+        async function initializeNetwork() {
+            console.log('Initializing network...');
+            showStatus('Generating network...', 'loading');
+            
+            const nNodes = parseInt(document.getElementById('nNodes').value);
+            const mEdges = parseInt(document.getElementById('mEdges').value);
+
+            try {
+                console.log('Fetching network data...');
+                const response = await fetch('/api/initialize/', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({n_nodes: nNodes, m_edges: mEdges})
+                });
+
+                console.log('Response received');
+                const data = await response.json();
+                console.log('Data parsed:', data);
+                
+                if (data.status === 'success') {
+                    graphData = data.graph;
+                    console.log('Graph data loaded:', graphData.nodes.length, 'nodes');
+                    renderGraph(graphData);
+                    updateStats({total_nodes: nNodes, infected_count: 0, healthy_count: nNodes, infection_rate: 0});
+                    document.getElementById('startBtn').disabled = false;
+                    showStatus('Network generated successfully!', 'success');
+                } else {
+                    console.error('Server error:', data.message);
+                    showStatus('Error: ' + data.message, 'error');
+                }
+            } catch (error) {
+                console.error('Network error:', error);
+                showStatus('Network error: ' + error.message, 'error');
+            }
+        }
+
+        // Start simulation
+        async function startSimulation() {
+            showStatus('Starting simulation...', 'loading');
+            
+            const infectionProb = parseFloat(document.getElementById('infectionProb').value);
+            const numInitial = parseInt(document.getElementById('numInitial').value);
+
+            try {
+                const response = await fetch('/api/start/', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        infection_probability: infectionProb,
+                        num_initial: numInitial
+                    })
+                });
+
+                const data = await response.json();
+                
+                if (data.status === 'success') {
+                    updateInfectionState(data.infection_state);
+                    updateStats(data.statistics);
+                    document.getElementById('stepBtn').disabled = false;
+                    document.getElementById('autoBtn').disabled = false;
+                    document.getElementById('startBtn').disabled = true;
+                    showStatus('Simulation started!', 'success');
+                    
+                    // Auto-start the spreading
+                    toggleAutoPlay();
+                } else {
+                    showStatus('Error: ' + data.message, 'error');
+                }
+            } catch (error) {
+                showStatus('Network error: ' + error.message, 'error');
+            }
+        }
+
+        // Single simulation step
+        async function simulationStep() {
+            try {
+                const response = await fetch('/api/step/', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'}
+                });
+
+                const data = await response.json();
+                
+                if (data.status === 'success') {
+                    updateInfectionState(data.infection_state);
+                    updateStats(data.statistics);
+                    
+                    if (data.step_result.is_outbreak_over) {
+                        showStatus('Outbreak has ended - no new infections', 'success');
+                        if (isAutoPlaying) {
+                            toggleAutoPlay();
+                        }
+                    }
+                }
+            } catch (error) {
+                console.error('Step error:', error);
+            }
+        }
+
+        // Toggle auto play
+        function toggleAutoPlay() {
+            isAutoPlaying = !isAutoPlaying;
+            const btn = document.getElementById('autoBtn');
+            
+            if (isAutoPlaying) {
+                btn.textContent = 'Stop Auto';
+                btn.classList.remove('btn-secondary');
+                btn.classList.add('btn-danger');
+                autoPlayInterval = setInterval(simulationStep, 1000);
+            } else {
+                btn.textContent = 'Auto Play';
+                btn.classList.remove('btn-danger');
+                btn.classList.add('btn-secondary');
+                clearInterval(autoPlayInterval);
+            }
+        }
+
+        // Infect node manually
+        async function infectNode(nodeId) {
+            try {
+                const response = await fetch('/api/infect/', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({node_id: nodeId})
+                });
+
+                const data = await response.json();
+                
+                if (data.status === 'success') {
+                    updateInfectionState(data.infection_state);
+                    updateStats(data.statistics);
+                }
+            } catch (error) {
+                console.error('Infect error:', error);
+            }
+        }
+
+        // Reset simulation
+        async function resetSimulation() {
+            if (isAutoPlaying) {
+                toggleAutoPlay();
+            }
+            
+            try {
+                await fetch('/api/reset/', {method: 'POST'});
+                
+                if (graphData) {
+                    // Reset visual state
+                    graphData.nodes.forEach(node => {
+                        node.infected = false;
+                    });
+                    updateGraph();
+                    updateStats({total_nodes: graphData.nodes.length, infected_count: 0, 
+                                healthy_count: graphData.nodes.length, infection_rate: 0, time_step: 0});
+                }
+                
+                document.getElementById('stepBtn').disabled = true;
+                document.getElementById('autoBtn').disabled = true;
+                document.getElementById('startBtn').disabled = false;
+                showStatus('Simulation reset', 'success');
+            } catch (error) {
+                console.error('Reset error:', error);
+            }
+        }
+
+        // Render graph with D3.js force-directed layout
+        function renderGraph(data) {
+            try {
+                console.log('Rendering 2D graph with', data.nodes.length, 'nodes and', data.links.length, 'links');
+                
+                const container = document.getElementById('network-graph');
+                container.innerHTML = ''; // Clear existing content
+                
+                const width = container.clientWidth;
+                const height = 700;
+                
+                // Create SVG
+                svg = d3.select('#network-graph')
+                    .append('svg')
+                    .attr('width', width)
+                    .attr('height', height);
+                
+                // Add zoom behavior
+                zoom = d3.zoom()
+                    .scaleExtent([0.1, 10])
+                    .on('zoom', (event) => {
+                        g.attr('transform', event.transform);
+                    });
+                
+                svg.call(zoom);
+                
+                // Create container group
+                g = svg.append('g');
+                
+                // Create force simulation
+                simulation = d3.forceSimulation(data.nodes)
+                    .force('link', d3.forceLink(data.links).id(d => d.id).distance(50))
+                    .force('charge', d3.forceManyBody().strength(-300))
+                    .force('center', d3.forceCenter(width / 2, height / 2))
+                    .force('collision', d3.forceCollide().radius(d => Math.sqrt(d.degree) * 3 + 10));
+                
+                // Create links
+                linkElements = g.append('g')
+                    .selectAll('line')
+                    .data(data.links)
+                    .join('line')
+                    .attr('class', 'link')
+                    .attr('stroke', d => {
+                        const sourceNode = data.nodes.find(n => n.id === d.source.id || n.id === d.source);
+                        const targetNode = data.nodes.find(n => n.id === d.target.id || n.id === d.target);
+                        if (sourceNode && targetNode) {
+                            if (sourceNode.infected && targetNode.infected) return '#ff6b6b';
+                            if (sourceNode.infected || targetNode.infected) return '#ffa07a';
+                        }
+                        return '#999';
+                    })
+                    .attr('stroke-opacity', 0.3)
+                    .attr('stroke-width', d => {
+                        const sourceNode = data.nodes.find(n => n.id === d.source.id || n.id === d.source);
+                        const targetNode = data.nodes.find(n => n.id === d.target.id || n.id === d.target);
+                        if (sourceNode && targetNode) {
+                            if (sourceNode.infected && targetNode.infected) return 2;
+                            if (sourceNode.infected || targetNode.infected) return 1.5;
+                        }
+                        return 1;
+                    });
+                
+                // Create nodes
+                nodeElements = g.append('g')
+                    .selectAll('circle')
+                    .data(data.nodes)
+                    .join('circle')
+                    .attr('class', 'node')
+                    .attr('r', d => Math.sqrt(d.degree) * 3 + 5)
+                    .attr('fill', d => d.infected ? '#f56565' : '#48bb78')
+                    .attr('stroke', '#333')
+                    .attr('stroke-width', 1.5)
+                    .on('click', (event, d) => {
+                        if (!d.infected) {
+                            infectNode(d.id);
+                        }
+                    })
+                    .on('mouseenter', (event, d) => {
+                        highlightNeighbors(d, true);
+                    })
+                    .on('mouseleave', (event, d) => {
+                        highlightNeighbors(d, false);
+                    })
+                    .call(d3.drag()
+                        .on('start', dragStarted)
+                        .on('drag', dragged)
+                        .on('end', dragEnded));
+                
+                // Add node labels
+                const labelElements = g.append('g')
+                    .selectAll('text')
+                    .data(data.nodes)
+                    .join('text')
+                    .attr('class', 'node-label')
+                    .attr('text-anchor', 'middle')
+                    .attr('dy', -15)
+                    .text(d => d.id);
+                
+                // Update positions on simulation tick
+                simulation.on('tick', () => {
+                    linkElements
+                        .attr('x1', d => d.source.x)
+                        .attr('y1', d => d.source.y)
+                        .attr('x2', d => d.target.x)
+                        .attr('y2', d => d.target.y);
+                    
+                    nodeElements
+                        .attr('cx', d => d.x)
+                        .attr('cy', d => d.y);
+                    
+                    labelElements
+                        .attr('x', d => d.x)
+                        .attr('y', d => d.y);
+                });
+                
+                console.log('2D graph rendered successfully');
+                
+            } catch (error) {
+                console.error('Error in renderGraph:', error);
+                showStatus('Error rendering graph: ' + error.message, 'error');
+            }
+        }
+        
+        // Drag functions
+        function dragStarted(event, d) {
+            if (!event.active) simulation.alphaTarget(0.3).restart();
+            d.fx = d.x;
+            d.fy = d.y;
+        }
+        
+        function dragged(event, d) {
+            d.fx = event.x;
+            d.fy = event.y;
+        }
+        
+        function dragEnded(event, d) {
+            if (!event.active) simulation.alphaTarget(0);
+            d.fx = null;
+            d.fy = null;
+        }
+        
+        // Highlight neighboring nodes
+        function highlightNeighbors(node, highlight) {
+            if (!linkElements || !nodeElements) return;
+
+            if (highlight) {
+                const connectedNodes = new Set();
+                connectedNodes.add(node.id);
+                
+                // Find all neighbors
+                const neighborIds = [];
+                linkElements.each(function(d) {
+                    const link = d3.select(this);
+                    if (d.source.id === node.id || d.target.id === node.id) {
+                        const neighborId = d.source.id === node.id ? d.target.id : d.source.id;
+                        connectedNodes.add(d.source.id);
+                        connectedNodes.add(d.target.id);
+                        neighborIds.push(neighborId);
+                        link
+                            .classed('highlighted', true)
+                            .attr('stroke', '#ffd700')
+                            .attr('stroke-opacity', 1)
+                            .attr('stroke-width', 5)
+                            .style('filter', 'drop-shadow(0 0 6px #ffd700)')
+                            .raise(); // Bring to front
+                    } else {
+                        link
+                            .classed('highlighted', false)
+                            .attr('stroke-opacity', 0.03)
+                            .style('filter', 'none');
+                    }
+                });
+
+                nodeElements
+                    .style('opacity', d => connectedNodes.has(d.id) ? 1 : 0.15)
+                    .each(function(d) {
+                        if (connectedNodes.has(d.id)) {
+                            d3.select(this).raise(); // Bring connected nodes to front
+                        }
+                    });
+                
+                // Show node info panel
+                const nodeInfoDiv = document.getElementById('nodeInfo');
+                document.getElementById('infoNodeId').textContent = node.id;
+                document.getElementById('infoStatus').textContent = node.infected ? 'Infected' : 'Healthy';
+                document.getElementById('infoStatus').className = node.infected ? 'status-infected' : 'status-healthy';
+                document.getElementById('infoDegree').textContent = node.degree;
+                document.getElementById('infoNeighbors').textContent = neighborIds.join(', ');
+                nodeInfoDiv.style.display = 'block';
+                
+            } else {
+                linkElements.each(function(d) {
+                    const link = d3.select(this);
+                    const sourceInfected = d.source.infected;
+                    const targetInfected = d.target.infected;
+                    link
+                        .classed('highlighted', false)
+                        .attr('stroke', () => {
+                            if (sourceInfected && targetInfected) return '#ff6b6b';
+                            if (sourceInfected || targetInfected) return '#ffa07a';
+                            return '#999';
+                        })
+                        .attr('stroke-opacity', 0.3)
+                        .attr('stroke-width', () => {
+                            if (sourceInfected && targetInfected) return 2;
+                            if (sourceInfected || targetInfected) return 1.5;
+                            return 1;
+                        })
+                        .style('filter', 'none');
+                });
+
+                nodeElements.style('opacity', 1);
+                
+                // Hide node info panel
+                document.getElementById('nodeInfo').style.display = 'none';
+            }
+        }
+
+        // Update graph colors
+        function updateGraph() {
+            if (!graphData || !nodeElements || !linkElements) return;
+            
+            // Update node colors and sizes
+            nodeElements
+                .attr('fill', d => d.infected ? '#f56565' : '#48bb78');
+            
+            // Update link colors
+            linkElements
+                .attr('stroke', d => {
+                    const sourceInfected = d.source.infected;
+                    const targetInfected = d.target.infected;
+                    if (sourceInfected && targetInfected) return '#ff6b6b';
+                    if (sourceInfected || targetInfected) return '#ffa07a';
+                    return '#999';
+                })
+                .attr('stroke-width', d => {
+                    const sourceInfected = d.source.infected;
+                    const targetInfected = d.target.infected;
+                    if (sourceInfected && targetInfected) return 2;
+                    if (sourceInfected || targetInfected) return 1.5;
+                    return 1;
+                });
+        }
+
+        // Update infection state
+        function updateInfectionState(infectionState) {
+            if (!graphData) return;
+
+            graphData.nodes.forEach(node => {
+                const state = infectionState[node.id];
+                if (state) {
+                    node.infected = state.infected;
+                }
+            });
+
+            updateGraph();
+        }
+
+        // Update statistics
+        function updateStats(stats) {
+            document.getElementById('timeStep').textContent = stats.time_step || 0;
+            document.getElementById('totalNodes').textContent = stats.total_nodes || 0;
+            document.getElementById('infectedCount').textContent = stats.infected_count || 0;
+            document.getElementById('healthyCount').textContent = stats.healthy_count || 0;
+            
+            const infectionRate = ((stats.infection_rate || 0) * 100).toFixed(1);
+            document.getElementById('infectionRate').textContent = infectionRate + '%';
+            document.getElementById('infectionProgress').style.width = infectionRate + '%';
+        }
+
+        // Auto-generate network on load
+        window.addEventListener('load', () => {
+            console.log('Page loaded, initializing network...');
+            setTimeout(() => {
+                initializeNetwork();
+            }, 500);
+        });
+
+        // Keyboard shortcuts
+        document.addEventListener('keydown', (event) => {
+            switch(event.key) {
+                case ' ':
+                    event.preventDefault();
+                    if (!document.getElementById('stepBtn').disabled) {
+                        simulationStep();
+                    }
+                    break;
+                case 'r':
+                case 'R':
+                    resetSimulation();
+                    break;
+                case 'p':
+                case 'P':
+                    if (!document.getElementById('autoBtn').disabled) {
+                        toggleAutoPlay();
+                    }
+                    break;
+            }
+        });
+    </script>
+</body>
+</html>
