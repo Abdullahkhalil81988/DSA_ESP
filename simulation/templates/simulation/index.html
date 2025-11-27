@@ -3,9 +3,26 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Disease Spread Simulation - Barabási-Albert Network</title>
+    <title>Disease Spread Simulation - Barabási-Albert Network (3D)</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
     <script src="https://d3js.org/d3.v7.min.js"></script>
     <style>
+        :root {
+            --bg-color: #0f172a;
+            --panel-bg: rgba(30, 41, 59, 0.85);
+            --border-color: rgba(148, 163, 184, 0.2);
+            --text-color: #f1f5f9;
+            --text-muted: #cbd5e1;
+            --primary-color: #10b981;
+            --primary-hover: #059669;
+            --secondary-color: #3b82f6;
+            --danger-color: #ef4444;
+            --warning-color: #f59e0b;
+            --font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+        }
+
         * {
             margin: 0;
             padding: 0;
@@ -13,225 +30,320 @@
         }
 
         body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: #333;
+            font-family: var(--font-family);
+            background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%);
+            color: var(--text-color);
             overflow-x: hidden;
+            position: relative;
+        }
+        
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-image: 
+                radial-gradient(circle at 20% 50%, rgba(16, 185, 129, 0.1) 0%, transparent 50%),
+                radial-gradient(circle at 80% 80%, rgba(59, 130, 246, 0.1) 0%, transparent 50%);
+            pointer-events: none;
+            z-index: 0;
         }
 
         .container {
-            max-width: 1400px;
+            max-width: 95%;
             margin: 0 auto;
             padding: 20px;
         }
 
-        header {
-            background: white;
-            padding: 20px;
-            border-radius: 10px;
-            margin-bottom: 20px;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        header, .controls-panel, .visualization-panel, .chart-panel, .stats-panel {
+            background: var(--panel-bg);
+            border-radius: 20px;
+            border: 1px solid var(--border-color);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            box-shadow: 
+                0 20px 60px rgba(0, 0, 0, 0.5),
+                0 0 0 1px rgba(255, 255, 255, 0.05) inset,
+                0 1px 0 rgba(255, 255, 255, 0.1) inset;
+            margin-bottom: 24px;
+            padding: 28px;
+            position: relative;
+            z-index: 1;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+        
+        header:hover, .controls-panel:hover, .visualization-panel:hover, .chart-panel:hover, .stats-panel:hover {
+            transform: translateY(-2px);
+            box-shadow: 
+                0 24px 70px rgba(0, 0, 0, 0.6),
+                0 0 0 1px rgba(255, 255, 255, 0.05) inset,
+                0 1px 0 rgba(255, 255, 255, 0.1) inset;
         }
 
         h1 {
-            color: #667eea;
+            color: var(--text-color);
             margin-bottom: 5px;
+            font-weight: 700;
         }
 
         .subtitle {
-            color: #666;
+            color: var(--text-muted);
             font-size: 14px;
-        }
-
-        .controls-panel {
-            background: white;
-            padding: 20px;
-            border-radius: 10px;
-            margin-bottom: 20px;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
         }
 
         .control-group {
             display: inline-block;
-            margin-right: 20px;
-            margin-bottom: 10px;
+            margin-right: 25px;
+            margin-bottom: 15px;
         }
 
         label {
             display: block;
-            margin-bottom: 5px;
-            font-weight: 600;
-            color: #555;
+            margin-bottom: 8px;
+            font-weight: 500;
+            color: var(--text-muted);
             font-size: 13px;
+            text-transform: uppercase;
         }
 
         input[type="number"], input[type="range"] {
-            padding: 8px;
-            border: 2px solid #ddd;
-            border-radius: 5px;
-            width: 150px;
+            padding: 12px;
+            background: rgba(0,0,0,0.3);
+            border: 1px solid var(--border-color);
+            border-radius: 10px;
+            width: 160px;
             font-size: 14px;
+            color: var(--text-color);
+            transition: all 0.3s ease;
+        }
+        
+        input[type="number"]:focus {
+            outline: none;
+            border-color: var(--primary-color);
+            background: rgba(0,0,0,0.4);
+            box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.1);
         }
 
         input[type="range"] {
             width: 200px;
+            -webkit-appearance: none;
+            appearance: none;
+            height: 8px;
+            background: rgba(0,0,0,0.3);
+            border-radius: 5px;
+            outline: none;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 20px;
+            height: 20px;
+            background: var(--primary-color);
+            cursor: pointer;
+            border-radius: 50%;
         }
 
         button {
-            padding: 10px 20px;
+            padding: 12px 28px;
             border: none;
-            border-radius: 5px;
+            border-radius: 50px;
             cursor: pointer;
             font-weight: 600;
             font-size: 14px;
-            transition: all 0.3s;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
             margin-right: 10px;
             margin-bottom: 10px;
+            background-size: 200% 100%;
+            position: relative;
+            overflow: hidden;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+        }
+        
+        button::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 0;
+            height: 0;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.2);
+            transform: translate(-50%, -50%);
+            transition: width 0.6s, height 0.6s;
+        }
+        
+        button:hover::before {
+            width: 300px;
+            height: 300px;
         }
 
         .btn-primary {
-            background: #667eea;
+            background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
             color: white;
         }
 
         .btn-primary:hover {
-            background: #5568d3;
             transform: translateY(-2px);
-            box-shadow: 0 4px 8px rgba(102, 126, 234, 0.3);
+            box-shadow: 0 8px 25px rgba(59, 130, 246, 0.4);
         }
 
         .btn-success {
-            background: #48bb78;
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
             color: white;
         }
 
         .btn-success:hover {
-            background: #38a169;
             transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(16, 185, 129, 0.4);
         }
 
         .btn-danger {
-            background: #f56565;
+            background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
             color: white;
         }
 
         .btn-danger:hover {
-            background: #e53e3e;
             transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(239, 68, 68, 0.4);
         }
 
         .btn-secondary {
-            background: #718096;
+            background: linear-gradient(135deg, #64748b 0%, #475569 100%);
             color: white;
         }
 
         .btn-secondary:hover {
-            background: #4a5568;
             transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(100, 116, 139, 0.4);
         }
 
         button:disabled {
-            opacity: 0.5;
+            opacity: 0.4;
             cursor: not-allowed;
             transform: none !important;
+            background-image: none;
+            background-color: #4a5568;
         }
 
         .main-content {
             display: grid;
-            grid-template-columns: 1fr 300px;
+            grid-template-columns: 1fr 320px;
+            gap: 20px;
+        }
+        
+        .visualization-container {
+            display: flex;
+            flex-direction: column;
             gap: 20px;
         }
 
         .visualization-panel {
-            background: white;
-            border-radius: 10px;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            height: 700px;
+            padding: 0;
             position: relative;
             overflow: hidden;
-            height: 700px;
+            background: linear-gradient(135deg, rgba(15, 23, 42, 0.6) 0%, rgba(30, 41, 59, 0.6) 100%);
+        }
+        
+        .chart-panel {
+            height: 350px;
+        }
+        
+        .chart-panel h3 {
+            color: var(--text-color);
+            margin-bottom: 15px;
+            font-size: 16px;
+        }
+        
+        #infection-chart {
+            width: 100%;
+            height: 280px;
         }
 
         #network-graph {
             width: 100%;
-            height: 700px;
-            border-radius: 10px;
+            height: 100%;
+            border-radius: 16px;
         }
 
         .stats-panel {
-            background: white;
-            padding: 20px;
-            border-radius: 10px;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
             height: fit-content;
+        }
+        
+        .stats-panel h3 {
+            color: var(--text-color) !important;
         }
 
         .stat-item {
-            margin-bottom: 15px;
-            padding: 15px;
-            background: #f7fafc;
-            border-radius: 8px;
-            border-left: 4px solid #667eea;
+            margin-bottom: 18px;
+            padding: 18px;
+            background: linear-gradient(135deg, rgba(16, 185, 129, 0.1) 0%, rgba(0, 0, 0, 0.2) 100%);
+            border-radius: 12px;
+            border-left: 4px solid var(--primary-color);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            transition: all 0.3s ease;
+        }
+        
+        .stat-item:hover {
+            transform: translateX(4px);
+            background: linear-gradient(135deg, rgba(16, 185, 129, 0.15) 0%, rgba(0, 0, 0, 0.25) 100%);
+            box-shadow: 0 6px 16px rgba(0, 0, 0, 0.2);
         }
 
         .stat-label {
+            display: block;
+            color: var(--text-muted);
             font-size: 12px;
-            color: #666;
             text-transform: uppercase;
-            font-weight: 600;
             margin-bottom: 5px;
         }
 
         .stat-value {
             font-size: 24px;
             font-weight: 700;
-            color: #2d3748;
+            color: var(--text-color);
         }
-
+        
         .infection-bar {
-            width: 100%;
-            height: 20px;
-            background: #e2e8f0;
-            border-radius: 10px;
-            overflow: hidden;
-            margin-top: 10px;
-        }
-
-        .infection-progress {
-            height: 100%;
-            background: linear-gradient(90deg, #f56565 0%, #c53030 100%);
-            transition: width 0.3s;
+            background: rgba(0,0,0,0.3);
         }
 
         .legend {
             margin-top: 20px;
-            padding: 15px;
-            background: #f7fafc;
-            border-radius: 8px;
+            padding: 18px;
+            background: linear-gradient(135deg, rgba(59, 130, 246, 0.1) 0%, rgba(0, 0, 0, 0.2) 100%);
+            border-radius: 12px;
+            border: 1px solid var(--border-color);
         }
-
+        .legend h4 {
+            color: var(--text-color) !important;
+        }
+        .legend span {
+            color: var(--text-muted);
+        }
         .legend-item {
             display: flex;
             align-items: center;
-            margin-bottom: 10px;
+            margin-bottom: 12px;
         }
-
         .legend-color {
             width: 20px;
             height: 20px;
             border-radius: 50%;
-            margin-right: 10px;
-            border: 2px solid #333;
+            margin-right: 12px;
         }
 
-        .status-message {
+        #loader {
             position: absolute;
-            top: 20px;
-            left: 20px;
-            padding: 10px 20px;
-            background: rgba(255, 255, 255, 0.95);
-            border-radius: 5px;
-            font-weight: 600;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: var(--text-color);
+            font-size: 18px;
+            display: none; /* Initially hidden */
             z-index: 10;
         }
         
@@ -239,157 +351,130 @@
             position: absolute;
             top: 20px;
             right: 20px;
-            padding: 15px 20px;
-            background: rgba(255, 255, 255, 0.95);
-            border-radius: 8px;
-            font-weight: 600;
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+            padding: 18px;
+            background: rgba(15, 23, 42, 0.95);
+            border-radius: 16px;
+            border: 1px solid rgba(16, 185, 129, 0.3);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            box-shadow: 
+                0 8px 32px rgba(0, 0, 0, 0.4),
+                0 0 0 1px rgba(16, 185, 129, 0.2) inset;
             z-index: 10;
-            min-width: 200px;
+            min-width: 240px;
             display: none;
-        }
-        
-        .node-info .info-title {
-            font-size: 14px;
-            color: #667eea;
-            margin-bottom: 8px;
-            border-bottom: 2px solid #667eea;
-            padding-bottom: 5px;
-        }
-        
-        .node-info .info-item {
             font-size: 13px;
-            margin: 5px 0;
-            color: #2d3748;
+            animation: slideIn 0.3s ease;
         }
         
-        .node-info .info-label {
-            font-weight: 600;
-            color: #666;
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateX(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
         }
         
-        .node-info .status-healthy {
-            color: #48bb78;
-            font-weight: bold;
-        }
-        
-        .node-info .status-infected {
-            color: #f56565;
-            font-weight: bold;
-        }
-
-        .loading {
-            color: #667eea;
-        }
-
-        .error {
-            color: #f56565;
-        }
-
-        .success {
-            color: #48bb78;
-        }
-
-        /* Graph styles */
+        /* 2D Graph Styles */
         .node {
-            stroke: #333;
-            stroke-width: 1.5px;
-            cursor: pointer;
-            transition: r 0.5s, fill 0.5s, stroke-width 0.3s;
-        }
-
-        .node.healthy {
-            fill: #48bb78;
-        }
-
-        .node.infected {
-            fill: #f56565;
-            animation: pulse 1s ease-in-out infinite;
-        }
-
-        @keyframes pulse {
-            0%, 100% {
-                filter: brightness(1);
-            }
-            50% {
-                filter: brightness(1.3);
-            }
-        }
-
-        .node.hub {
+            stroke: #0f172a;
             stroke-width: 2.5px;
-            stroke: #2d3748;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         }
-
-        .node:hover {
-            stroke: #ffd700;
+        .node.healthy { 
+            fill: #10b981;
+        }
+        .node.infected { 
+            fill: #ef4444;
+            filter: drop-shadow(0 0 12px rgba(239, 68, 68, 0.8));
+            animation: pulse 2s ease-in-out infinite;
+        }
+        .node.dimmed { 
+            opacity: 0.08;
+            transition: opacity 0.3s ease;
+        }
+        .node.highlighted-central {
+            stroke: #00ff00;
+            stroke-width: 5px;
+            filter: drop-shadow(0 0 15px rgba(0, 255, 0, 0.9));
+            transform-origin: center;
+            animation: glow 1.5s ease-in-out infinite;
+        }
+        .node.highlighted-neighbor {
+            fill: #ffff00 !important;
+            stroke: #ffff00;
             stroke-width: 4px;
-            filter: drop-shadow(0 0 5px #ffd700);
+            filter: drop-shadow(0 0 12px rgba(255, 255, 0, 0.8));
         }
-
-        .node.newly-infected {
-            animation: infect-pulse 1s ease-out;
+        
+        @keyframes pulse {
+            0%, 100% { 
+                transform: scale(1);
+                opacity: 1;
+            }
+            50% { 
+                transform: scale(1.1);
+                opacity: 0.9;
+            }
         }
-
-        @keyframes infect-pulse {
-            0% {
-                r: 5;
-                fill: #48bb78;
+        
+        @keyframes glow {
+            0%, 100% { 
+                filter: drop-shadow(0 0 15px rgba(0, 255, 0, 0.9));
             }
-            50% {
-                r: 20;
-                fill: #f56565;
-                filter: brightness(1.5);
-            }
-            100% {
-                fill: #f56565;
+            50% { 
+                filter: drop-shadow(0 0 25px rgba(0, 255, 0, 1));
             }
         }
 
         .link {
-            stroke: #999;
-            stroke-opacity: 0.3;
-            stroke-width: 1px;
-            transition: stroke-opacity 0.3s, stroke-width 0.3s;
+            stroke: #475569;
+            stroke-opacity: 0.4;
+            transition: all 0.3s ease;
         }
-
+        .link.dimmed { 
+            stroke-opacity: 0.05;
+            transition: stroke-opacity 0.3s ease;
+        }
         .link.highlighted {
             stroke: #ffd700;
-            stroke-opacity: 1 !important;
-            stroke-width: 4px !important;
-            filter: drop-shadow(0 0 4px #ffd700);
+            stroke-opacity: 1;
+            stroke-width: 3px;
+            filter: drop-shadow(0 0 6px rgba(255, 215, 0, 0.6));
         }
-
-        .node-label {
-            font-size: 10px;
+        
+        .node-info .info-title {
+            font-size: 14px;
+            color: var(--text-color);
+            margin-bottom: 10px;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 8px;
+            font-weight: 600;
+        }
+        
+        .node-info .info-item {
+            margin: 8px 0;
+            color: var(--text-color);
+        }
+        
+        .node-info .info-label {
+            font-weight: 600;
+            color: var(--text-muted);
+            margin-right: 5px;
+        }
+        
+        .node-info .status-healthy {
+            color: var(--primary-color);
             font-weight: bold;
-            fill: #2d3748;
-            pointer-events: none;
-            opacity: 0;
-            transition: opacity 0.3s;
-            text-shadow: 0 0 3px white, 0 0 3px white, 0 0 3px white;
         }
-
-        .node-label.visible {
-            opacity: 1;
-        }
-
-        .minimap {
-            position: absolute;
-            bottom: 20px;
-            right: 20px;
-            width: 150px;
-            height: 150px;
-            background: rgba(255, 255, 255, 0.9);
-            border: 2px solid #667eea;
-            border-radius: 8px;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
-        }
-
-        .minimap-viewport {
-            stroke: #667eea;
-            stroke-width: 2;
-            fill: rgba(102, 126, 234, 0.2);
+        
+        .node-info .status-infected {
+            color: var(--danger-color);
+            font-weight: bold;
         }
 
         @media (max-width: 1024px) {
@@ -423,6 +508,13 @@
                 <label>Initial Infected</label>
                 <input type="number" id="numInitial" value="5" min="1" max="50">
             </div>
+            <div class="control-group">
+                <label>Graph Type</label>
+                <select id="vizType" style="padding: 12px; background: rgba(0,0,0,0.3); border: 1px solid var(--border-color); border-radius: 10px; font-size: 14px; color: var(--text-color); width: 160px; cursor: pointer;">
+                    <option value="3d" selected>3D Visualization</option>
+                    <option value="2d">2D Visualization</option>
+                </select>
+            </div>
             <br>
             <button class="btn-primary" onclick="initializeNetwork()">Generate Network</button>
             <button class="btn-success" id="startBtn" onclick="startSimulation()" disabled>Start Simulation</button>
@@ -432,16 +524,23 @@
         </div>
 
         <div class="main-content">
-            <div class="visualization-panel">
-                <div id="statusMessage" class="status-message" style="display: none;"></div>
-                <div id="nodeInfo" class="node-info">
-                    <div class="info-title">Node Information</div>
-                    <div class="info-item"><span class="info-label">Node ID:</span> <span id="infoNodeId">-</span></div>
-                    <div class="info-item"><span class="info-label">Status:</span> <span id="infoStatus">-</span></div>
-                    <div class="info-item"><span class="info-label">Degree:</span> <span id="infoDegree">-</span></div>
-                    <div class="info-item"><span class="info-label">Neighbors:</span> <span id="infoNeighbors">-</span></div>
+            <div class="visualization-container">
+                <div class="visualization-panel">
+                    <div id="statusMessage" class="status-message" style="display: none;"></div>
+                    <div id="nodeInfo" class="node-info">
+                        <div class="info-title">Node Information</div>
+                        <div class="info-item"><span class="info-label">Node ID:</span> <span id="infoNodeId">-</span></div>
+                        <div class="info-item"><span class="info-label">Status:</span> <span id="infoStatus">-</span></div>
+                        <div class="info-item"><span class="info-label">Degree:</span> <span id="infoDegree">-</span></div>
+                        <div class="info-item"><span class="info-label">Neighbors:</span> <span id="infoNeighbors">-</span></div>
+                    </div>
+                    <div id="network-graph"></div>
                 </div>
-                <div id="network-graph"></div>
+                
+                <div class="chart-panel">
+                    <h3>📈 Infection Timeline</h3>
+                    <canvas id="infection-chart"></canvas>
+                </div>
             </div>
 
             <div class="stats-panel">
@@ -476,29 +575,29 @@
                 </div>
 
                 <div class="legend">
-                    <h4 style="margin-bottom: 10px; color: #2d3748;">Legend</h4>
+                    <h4 style="margin-bottom: 10px; color: var(--text-color);">Legend</h4>
                     <div class="legend-item">
-                        <div class="legend-color" style="background: #48bb78;"></div>
-                        <span>Healthy Node</span>
+                        <div class="legend-color" style="background: #10b981; border: 2px solid var(--text-color);"></div>
+                        <span style="color: var(--text-color);">Healthy Node</span>
                     </div>
                     <div class="legend-item">
-                        <div class="legend-color" style="background: #f56565;"></div>
-                        <span>Infected Node</span>
+                        <div class="legend-color" style="background: #ef4444; border: 2px solid var(--text-color);"></div>
+                        <span style="color: var(--text-color);">Infected Node</span>
                     </div>
                     <div class="legend-item">
-                        <div class="legend-color" style="background: #667eea; border-width: 3px;"></div>
-                        <span>Hub Node (High Degree)</span>
+                        <div class="legend-color" style="background: #3b82f6; border-width: 3px; border: 3px solid var(--text-color);"></div>
+                        <span style="color: var(--text-color);">Hub Node (High Degree)</span>
                     </div>
                 </div>
 
-                <div style="margin-top: 20px; padding: 15px; background: #fff5f5; border-radius: 8px; border-left: 4px solid #f56565;">
-                    <strong>💡 Instructions:</strong>
-                    <ul style="margin-top: 10px; margin-left: 20px; font-size: 13px; line-height: 1.6;">
+                <div style="margin-top: 20px; padding: 18px; background: linear-gradient(135deg, rgba(239, 68, 68, 0.15) 0%, rgba(0, 0, 0, 0.2) 100%); border-radius: 12px; border-left: 4px solid var(--danger-color);">
+                    <strong style="color: var(--text-color);">💡 Instructions:</strong>
+                    <ul style="margin-top: 10px; margin-left: 20px; font-size: 13px; line-height: 1.8; color: var(--text-muted);">
                         <li>🦠 Disease spreads automatically to neighbors</li>
                         <li>👆 Click any node to infect it manually</li>
-                        <li>🖱️ Drag nodes to reposition them</li>
+                        <li>🖱️ Drag nodes to reposition them (2D only)</li>
                         <li>🔍 Scroll to zoom in/out</li>
-                        <li>✋ Click and drag background to pan</li>
+                        <li>✋ Click and drag to rotate (3D) or pan (2D)</li>
                         <li>🎯 Hover over nodes to highlight neighbors</li>
                         <li>⌨️ Keyboard: Space=step, P=play, R=reset</li>
                     </ul>
@@ -510,14 +609,40 @@
     <script>
         // Global state
         let graphData = null;
-        let simulation = null;
-        let svg = null;
-        let g = null;
-        let zoom = null;
-        let linkElements = null;
-        let nodeElements = null;
+        let scene = null;
+        let camera = null;
+        let renderer = null;
+        let controls = null;
+        let raycaster = null;
+        let mouse = null;
+        let nodeObjects = [];
+        let edgeObjects = [];
+        let hoveredNode = null;
         let autoPlayInterval = null;
         let isAutoPlaying = false;
+        let infectionChart = null;
+        let chartData = {
+            timeSteps: [],
+            infected: [],
+            healthy: [],
+            recovered: []
+        };
+        let currentVizType = '3d';
+        let d3Simulation = null;
+
+        // --- NEW Highlighting Colors ---
+        const healthyColor = new THREE.Color("#48bb78");
+        const infectedColor = new THREE.Color("#f56565");
+        const recoveredColor = new THREE.Color("#4299e1");
+        const edgeColor = new THREE.Color("#353d4f"); // Darker edge
+
+        const highlightNodeColor = new THREE.Color("#fafad2"); // Light Goldenrod Yellow
+        const highlightNeighborColor = new THREE.Color("#ffffff"); // White
+        const highlightEdgeColor = new THREE.Color("#fafad2");
+
+        let highlightedNode = null;
+        let highlightedNeighbors = new Set();
+        let highlightedEdges = new Set();
 
         // Update probability display
         document.getElementById('infectionProb').addEventListener('input', (e) => {
@@ -546,6 +671,7 @@
             
             const nNodes = parseInt(document.getElementById('nNodes').value);
             const mEdges = parseInt(document.getElementById('mEdges').value);
+            currentVizType = document.getElementById('vizType').value;
 
             try {
                 console.log('Fetching network data...');
@@ -562,10 +688,24 @@
                 if (data.status === 'success') {
                     graphData = data.graph;
                     console.log('Graph data loaded:', graphData.nodes.length, 'nodes');
-                    renderGraph(graphData);
-                    updateStats({total_nodes: nNodes, infected_count: 0, healthy_count: nNodes, infection_rate: 0});
+                    
+                    if (currentVizType === '3d') {
+                        renderGraph3D(graphData);
+                    } else {
+                        renderGraph2D(graphData);
+                    }
+                    updateStats({total_nodes: nNodes, infected_count: 0, healthy_count: nNodes, infection_rate: 0, time_step: 0});
                     document.getElementById('startBtn').disabled = false;
                     showStatus('Network generated successfully!', 'success');
+                    
+                    // Reset and initialize chart
+                    chartData = {
+                        timeSteps: [0],
+                        infected: [0],
+                        healthy: [nNodes],
+                        recovered: [0]
+                    };
+                    initializeChart();
                 } else {
                     console.error('Server error:', data.message);
                     showStatus('Error: ' + data.message, 'error');
@@ -693,7 +833,22 @@
                     });
                     updateGraph();
                     updateStats({total_nodes: graphData.nodes.length, infected_count: 0, 
-                                healthy_count: graphData.nodes.length, infection_rate: 0, time_step: 0});
+                                healthy_count: graphData.nodes.length, infection_rate: 0, time_step: 0, recovered_count: 0});
+                    
+                    // Reset chart
+                    chartData = {
+                        timeSteps: [0],
+                        infected: [0],
+                        healthy: [graphData.nodes.length],
+                        recovered: [0]
+                    };
+                    if (infectionChart) {
+                        infectionChart.data.labels = chartData.timeSteps;
+                        infectionChart.data.datasets[0].data = chartData.infected;
+                        infectionChart.data.datasets[1].data = chartData.healthy;
+                        infectionChart.data.datasets[2].data = chartData.recovered;
+                        infectionChart.update();
+                    }
                 }
                 
                 document.getElementById('stepBtn').disabled = true;
@@ -705,10 +860,10 @@
             }
         }
 
-        // Render graph with D3.js force-directed layout
-        function renderGraph(data) {
+        // Render graph with Three.js 3D visualization
+        function renderGraph3D(data) {
             try {
-                console.log('Rendering 2D graph with', data.nodes.length, 'nodes and', data.links.length, 'links');
+                console.log('Rendering 3D graph with', data.nodes.length, 'nodes and', data.links.length, 'links');
                 
                 const container = document.getElementById('network-graph');
                 container.innerHTML = ''; // Clear existing content
@@ -716,237 +871,496 @@
                 const width = container.clientWidth;
                 const height = 700;
                 
-                // Create SVG
-                svg = d3.select('#network-graph')
-                    .append('svg')
-                    .attr('width', width)
-                    .attr('height', height);
+                // Initialize Three.js scene
+                scene = new THREE.Scene();
+                scene.background = new THREE.Color(0x1a202c); // Dark background
+                scene.fog = new THREE.Fog(0x1a202c, 400, 1000); // Match fog to background
                 
-                // Add zoom behavior
-                zoom = d3.zoom()
-                    .scaleExtent([0.1, 10])
-                    .on('zoom', (event) => {
-                        g.attr('transform', event.transform);
-                    });
+                // Setup camera
+                camera = new THREE.PerspectiveCamera(60, width / height, 0.1, 2000);
+                camera.position.set(0, 50, 300); // Slightly further back
                 
-                svg.call(zoom);
+                // Setup renderer
+                renderer = new THREE.WebGLRenderer({ antialias: true });
+                renderer.setSize(width, height);
+                renderer.setPixelRatio(window.devicePixelRatio);
+                container.appendChild(renderer.domElement);
                 
-                // Create container group
-                g = svg.append('g');
+                // Add OrbitControls
+                controls = new THREE.OrbitControls(camera, renderer.domElement);
+                controls.enableDamping = true;
+                controls.dampingFactor = 0.05;
+                controls.screenSpacePanning = false;
+                controls.minDistance = 50;
+                controls.maxDistance = 500;
                 
-                // Create force simulation
-                simulation = d3.forceSimulation(data.nodes)
-                    .force('link', d3.forceLink(data.links).id(d => d.id).distance(50))
-                    .force('charge', d3.forceManyBody().strength(-300))
-                    .force('center', d3.forceCenter(width / 2, height / 2))
-                    .force('collision', d3.forceCollide().radius(d => Math.sqrt(d.degree) * 3 + 10));
+                // Add lights
+                const ambientLight = new THREE.AmbientLight(0x404040, 1.5);
+                scene.add(ambientLight);
                 
-                // Create links
-                linkElements = g.append('g')
-                    .selectAll('line')
-                    .data(data.links)
-                    .join('line')
-                    .attr('class', 'link')
-                    .attr('stroke', d => {
-                        const sourceNode = data.nodes.find(n => n.id === d.source.id || n.id === d.source);
-                        const targetNode = data.nodes.find(n => n.id === d.target.id || n.id === d.target);
-                        if (sourceNode && targetNode) {
-                            if (sourceNode.infected && targetNode.infected) return '#ff6b6b';
-                            if (sourceNode.infected || targetNode.infected) return '#ffa07a';
-                        }
-                        return '#999';
-                    })
-                    .attr('stroke-opacity', 0.3)
-                    .attr('stroke-width', d => {
-                        const sourceNode = data.nodes.find(n => n.id === d.source.id || n.id === d.source);
-                        const targetNode = data.nodes.find(n => n.id === d.target.id || n.id === d.target);
-                        if (sourceNode && targetNode) {
-                            if (sourceNode.infected && targetNode.infected) return 2;
-                            if (sourceNode.infected || targetNode.infected) return 1.5;
-                        }
-                        return 1;
-                    });
+                const directionalLight1 = new THREE.DirectionalLight(0xffffff, 0.8);
+                directionalLight1.position.set(1, 1, 1);
+                scene.add(directionalLight1);
                 
-                // Create nodes
-                nodeElements = g.append('g')
-                    .selectAll('circle')
-                    .data(data.nodes)
-                    .join('circle')
-                    .attr('class', 'node')
-                    .attr('r', d => Math.sqrt(d.degree) * 3 + 5)
-                    .attr('fill', d => d.infected ? '#f56565' : '#48bb78')
-                    .attr('stroke', '#333')
-                    .attr('stroke-width', 1.5)
-                    .on('click', (event, d) => {
-                        if (!d.infected) {
-                            infectNode(d.id);
-                        }
-                    })
-                    .on('mouseenter', (event, d) => {
-                        highlightNeighbors(d, true);
-                    })
-                    .on('mouseleave', (event, d) => {
-                        highlightNeighbors(d, false);
-                    })
-                    .call(d3.drag()
-                        .on('start', dragStarted)
-                        .on('drag', dragged)
-                        .on('end', dragEnded));
+                const directionalLight2 = new THREE.DirectionalLight(0xffffff, 0.4);
+                directionalLight2.position.set(-1, -1, -1);
+                scene.add(directionalLight2);
                 
-                // Add node labels
-                const labelElements = g.append('g')
-                    .selectAll('text')
-                    .data(data.nodes)
-                    .join('text')
-                    .attr('class', 'node-label')
-                    .attr('text-anchor', 'middle')
-                    .attr('dy', -15)
-                    .text(d => d.id);
+                const hemisphereLight = new THREE.HemisphereLight(0xffffff, 0x444444, 0.6);
+                scene.add(hemisphereLight);
                 
-                // Update positions on simulation tick
-                simulation.on('tick', () => {
-                    linkElements
-                        .attr('x1', d => d.source.x)
-                        .attr('y1', d => d.source.y)
-                        .attr('x2', d => d.target.x)
-                        .attr('y2', d => d.target.y);
+                // Add grid helper
+                const gridHelper = new THREE.GridHelper(500, 25, 0x4a5568, 0x2d3748); // Dark grid
+                gridHelper.position.y = -140;
+                scene.add(gridHelper);
+                
+                // Calculate 3D positions
+                const positions = calculatePositions3D(data);
+                
+                // Create edges
+                edgeObjects = [];
+                const edgeMaterial = new THREE.LineBasicMaterial({ color: edgeColor, opacity: 0.3, transparent: true });
+                
+                data.links.forEach(link => {
+                    const sourceId = link.source.id || link.source;
+                    const targetId = link.target.id || link.target;
+                    const sourcePos = positions[sourceId];
+                    const targetPos = positions[targetId];
                     
-                    nodeElements
-                        .attr('cx', d => d.x)
-                        .attr('cy', d => d.y);
+                    const geometry = new THREE.BufferGeometry().setFromPoints([
+                        new THREE.Vector3(sourcePos.x, sourcePos.y, sourcePos.z),
+                        new THREE.Vector3(targetPos.x, targetPos.y, targetPos.z)
+                    ]);
                     
-                    labelElements
-                        .attr('x', d => d.x)
-                        .attr('y', d => d.y);
+                    const line = new THREE.Line(geometry, edgeMaterial.clone());
+                    line.userData = { source: sourceId, target: targetId };
+                    scene.add(line);
+                    edgeObjects.push(line);
                 });
                 
-                console.log('2D graph rendered successfully');
+                // Create nodes
+                nodeObjects = [];
+                data.nodes.forEach(node => {
+                    const pos = positions[node.id];
+                    const radius = Math.sqrt(node.degree) * 1.2 + 3.0; // Adjusted radius
+                    
+                    const geometry = new THREE.SphereGeometry(radius, 32, 32);
+                    const material = new THREE.MeshPhongMaterial({
+                        color: node.infected ? infectedColor : healthyColor,
+                        shininess: 80,
+                        specular: 0xbbbbbb
+                    });
+                    
+                    const sphere = new THREE.Mesh(geometry, material);
+                    sphere.position.set(pos.x, pos.y, pos.z);
+                    sphere.userData = { nodeId: node.id, node: node };
+                    scene.add(sphere);
+                    nodeObjects.push(sphere);
+                });
+                
+                // Setup raycaster for mouse interaction
+                raycaster = new THREE.Raycaster();
+                mouse = new THREE.Vector2();
+                
+                // Mouse move handler
+                renderer.domElement.addEventListener('mousemove', onMouseMove, false);
+                renderer.domElement.addEventListener('click', onMouseClick, false);
+                
+                // Animation loop
+                function animate() {
+                    requestAnimationFrame(animate);
+                    controls.update();
+                    renderer.render(scene, camera);
+                }
+                animate();
+                
+                console.log('3D graph rendered successfully');
                 
             } catch (error) {
-                console.error('Error in renderGraph:', error);
-                showStatus('Error rendering graph: ' + error.message, 'error');
+                console.error('Error in renderGraph3D:', error);
+                showStatus('Error rendering 3D graph: ' + error.message, 'error');
             }
         }
         
-        // Drag functions
-        function dragStarted(event, d) {
-            if (!event.active) simulation.alphaTarget(0.3).restart();
-            d.fx = d.x;
-            d.fy = d.y;
+        // Render graph with D3.js 2D visualization
+        function renderGraph2D(data) {
+            console.log('Rendering 2D graph with', data.nodes.length, 'nodes and', data.links.length, 'links');
+            const container = document.getElementById('network-graph');
+            container.innerHTML = '';
+
+            const width = container.clientWidth;
+            const height = container.clientHeight;
+
+            const svg = d3.select(container).append("svg")
+                .attr("width", width)
+                .attr("height", height)
+                .call(d3.zoom().on("zoom", (event) => {
+                    g.attr("transform", event.transform);
+                }));
+
+            const g = svg.append("g");
+
+            d3Simulation = d3.forceSimulation(data.nodes)
+                .force("link", d3.forceLink(data.links).id(d => d.id).distance(50))
+                .force("charge", d3.forceManyBody().strength(-300))
+                .force("center", d3.forceCenter(width / 2, height / 2))
+                .force("collision", d3.forceCollide().radius(d => Math.sqrt(d.degree) * 1.2 + 6));
+
+            const link = g.append("g")
+                .attr("class", "links")
+                .selectAll("line")
+                .data(data.links)
+                .enter().append("line")
+                .attr("class", "link");
+
+            const node = g.append("g")
+                .attr("class", "nodes")
+                .selectAll("circle")
+                .data(data.nodes)
+                .enter().append("circle")
+                .attr("class", d => `node ${d.infected ? 'infected' : 'healthy'}`)
+                .attr("r", d => Math.sqrt(d.degree) * 1.2 + 5)
+                .call(d3.drag()
+                    .on("start", dragstarted)
+                    .on("drag", dragged)
+                    .on("end", dragended))
+                .on("mouseover", (event, d) => highlightNeighbors2D(d, true))
+                .on("mouseout", (event, d) => highlightNeighbors2D(d, false))
+                .on("click", (event, d) => {
+                    if (!isAutoPlaying) infectNode(d.id);
+                });
+
+            node.append("title")
+                .text(d => `ID: ${d.id}\nDegree: ${d.degree}\nStatus: ${d.infected ? 'Infected' : 'Healthy'}`);
+
+            d3Simulation.on("tick", () => {
+                link
+                    .attr("x1", d => d.source.x)
+                    .attr("y1", d => d.source.y)
+                    .attr("x2", d => d.target.x)
+                    .attr("y2", d => d.target.y);
+
+                node
+                    .attr("cx", d => d.x)
+                    .attr("cy", d => d.y);
+            });
+
+            function dragstarted(event, d) {
+                if (!event.active) d3Simulation.alphaTarget(0.3).restart();
+                d.fx = d.x;
+                d.fy = d.y;
+            }
+
+            function dragged(event, d) {
+                d.fx = event.x;
+                d.fy = event.y;
+            }
+
+            function dragended(event, d) {
+                if (!event.active) d3Simulation.alphaTarget(0);
+                d.fx = null;
+                d.fy = null;
+            }
+            
+            nodeObjects = node;
+            edgeObjects = link;
         }
         
-        function dragged(event, d) {
-            d.fx = event.x;
-            d.fy = event.y;
-        }
-        
-        function dragEnded(event, d) {
-            if (!event.active) simulation.alphaTarget(0);
-            d.fx = null;
-            d.fy = null;
-        }
-        
-        // Highlight neighboring nodes
-        function highlightNeighbors(node, highlight) {
-            if (!linkElements || !nodeElements) return;
+        // Highlight neighboring nodes in 2D
+        function highlightNeighbors2D(selectedNode, highlight) {
+            nodeObjects.classed("dimmed", false);
+            edgeObjects.classed("dimmed", false);
+            nodeObjects.classed("highlighted-central", false);
+            nodeObjects.classed("highlighted-neighbor", false);
+            edgeObjects.classed("highlighted", false);
 
             if (highlight) {
-                const connectedNodes = new Set();
-                connectedNodes.add(node.id);
-                
-                // Find all neighbors
-                const neighborIds = [];
-                linkElements.each(function(d) {
-                    const link = d3.select(this);
-                    if (d.source.id === node.id || d.target.id === node.id) {
-                        const neighborId = d.source.id === node.id ? d.target.id : d.source.id;
-                        connectedNodes.add(d.source.id);
-                        connectedNodes.add(d.target.id);
-                        neighborIds.push(neighborId);
-                        link
-                            .classed('highlighted', true)
-                            .attr('stroke', '#ffd700')
-                            .attr('stroke-opacity', 1)
-                            .attr('stroke-width', 5)
-                            .style('filter', 'drop-shadow(0 0 6px #ffd700)')
-                            .raise(); // Bring to front
-                    } else {
-                        link
-                            .classed('highlighted', false)
-                            .attr('stroke-opacity', 0.03)
-                            .style('filter', 'none');
+                const neighborIds = new Set();
+                const linkedEdges = new Set();
+                const neighborIdsList = [];
+
+                neighborIds.add(selectedNode.id);
+                graphData.links.forEach(link => {
+                    if (link.source.id === selectedNode.id) {
+                        neighborIds.add(link.target.id);
+                        neighborIdsList.push(link.target.id);
+                        linkedEdges.add(link);
+                    } else if (link.target.id === selectedNode.id) {
+                        neighborIds.add(link.source.id);
+                        neighborIdsList.push(link.source.id);
+                        linkedEdges.add(link);
                     }
                 });
 
-                nodeElements
-                    .style('opacity', d => connectedNodes.has(d.id) ? 1 : 0.15)
-                    .each(function(d) {
-                        if (connectedNodes.has(d.id)) {
-                            d3.select(this).raise(); // Bring connected nodes to front
-                        }
-                    });
+                // Show info panel
+                document.getElementById('infoNodeId').textContent = selectedNode.id;
+                document.getElementById('infoStatus').textContent = selectedNode.infected ? 'Infected' : 'Healthy';
+                document.getElementById('infoStatus').className = selectedNode.infected ? 'status-infected' : 'status-healthy';
+                document.getElementById('infoDegree').textContent = selectedNode.degree;
+                document.getElementById('infoNeighbors').textContent = neighborIdsList.join(', ') || 'None';
+                document.getElementById('nodeInfo').style.display = 'block';
+
+                nodeObjects.classed("dimmed", d => !neighborIds.has(d.id));
+                edgeObjects.classed("dimmed", d => !linkedEdges.has(d));
+                nodeObjects.filter(d => d.id === selectedNode.id).classed("highlighted-central", true);
+                nodeObjects.filter(d => neighborIdsList.includes(d.id)).classed("highlighted-neighbor", true);
+                edgeObjects.filter(d => linkedEdges.has(d)).classed("highlighted", true);
+            } else {
+                document.getElementById('nodeInfo').style.display = 'none';
+            }
+        }
+        
+        // Calculate 3D positions using force-directed layout
+        function calculatePositions3D(data) {
+            const positions = {};
+            const nodes = data.nodes;
+            const links = data.links;
+            
+            // Initialize with spherical distribution
+            const radius = 120;
+            nodes.forEach((node, i) => {
+                const theta = Math.random() * Math.PI * 2;
+                const phi = Math.acos(2 * Math.random() - 1);
+                positions[node.id] = {
+                    x: radius * Math.sin(phi) * Math.cos(theta),
+                    y: radius * Math.sin(phi) * Math.sin(theta),
+                    z: radius * Math.cos(phi),
+                    vx: 0,
+                    vy: 0,
+                    vz: 0
+                };
+            });
+            
+            // Spring-based force simulation
+            const iterations = 12;
+            for (let iter = 0; iter < iterations; iter++) {
+                // Reset forces
+                nodes.forEach(node => {
+                    const pos = positions[node.id];
+                    pos.vx = 0;
+                    pos.vy = 0;
+                    pos.vz = 0;
+                });
                 
-                // Show node info panel
-                const nodeInfoDiv = document.getElementById('nodeInfo');
+                // Spring forces along edges
+                links.forEach(link => {
+                    const sid = link.source.id || link.source;
+                    const tid = link.target.id || link.target;
+                    const source = positions[sid];
+                    const target = positions[tid];
+                    
+                    const dx = target.x - source.x;
+                    const dy = target.y - source.y;
+                    const dz = target.z - source.z;
+                    const dist = Math.sqrt(dx * dx + dy * dy + dz * dz) || 1;
+                    
+                    const force = dist * 0.015;
+                    const fx = (dx / dist) * force;
+                    const fy = (dy / dist) * force;
+                    const fz = (dz / dist) * force;
+                    
+                    source.vx += fx;
+                    source.vy += fy;
+                    source.vz += fz;
+                    target.vx -= fx;
+                    target.vy -= fy;
+                    target.vz -= fz;
+                });
+                
+                // Apply forces with damping
+                const damping = 0.4 * (1 - iter / iterations);
+                nodes.forEach(node => {
+                    const pos = positions[node.id];
+                    pos.x += pos.vx * damping;
+                    pos.y += pos.vy * damping;
+                    pos.z += pos.vz * damping;
+                });
+            }
+            
+            return positions;
+        }
+        
+        // Mouse move handler for 3D
+        function onMouseMove(event) {
+            if (currentVizType !== '3d' || !renderer || !camera || !raycaster || !nodeObjects.length) return;
+            
+            const rect = renderer.domElement.getBoundingClientRect();
+            mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+            mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+            
+            raycaster.setFromCamera(mouse, camera);
+            const intersects = raycaster.intersectObjects(nodeObjects);
+            
+            if (intersects.length > 0) {
+                const intersectedNode = intersects[0].object.userData.node;
+                if (hoveredNode !== intersectedNode) {
+                    if (hoveredNode) {
+                        highlightNeighbors3D(hoveredNode, false);
+                    }
+                    hoveredNode = intersectedNode;
+                    highlightNeighbors3D(hoveredNode, true);
+                    renderer.domElement.style.cursor = 'pointer';
+                }
+            } else {
+                if (hoveredNode) {
+                    highlightNeighbors3D(hoveredNode, false);
+                    hoveredNode = null;
+                }
+                renderer.domElement.style.cursor = 'default';
+            }
+        }
+        
+        // Mouse click handler for 3D
+        function onMouseClick(event) {
+            if (currentVizType !== '3d' || !hoveredNode || hoveredNode.infected || isAutoPlaying) return;
+            if (hoveredNode) {
+                infectNode(hoveredNode.id);
+            }
+        }
+        
+        // Highlight neighboring nodes in 3D
+        function highlightNeighbors3D(node, highlight) {
+            const nodeId = node.id;
+
+            // --- ALWAYS RESET EVERYTHING FIRST ---
+            // Reset ALL nodes to their original state
+            nodeObjects.forEach(obj => {
+                const nodeData = graphData.nodes.find(n => n.id === obj.userData.nodeId);
+                if (nodeData) {
+                    let originalColor = nodeData.infected ? infectedColor : healthyColor;
+                    obj.material.color.set(originalColor);
+                    obj.material.emissive.setHex(0x000000);
+                    obj.material.emissiveIntensity = 0;
+                    obj.material.shininess = 80;
+                    obj.material.opacity = 1.0;
+                    obj.scale.set(1, 1, 1);
+                }
+            });
+
+            // Reset ALL edges
+            edgeObjects.forEach(edge => {
+                edge.material.color.set(edgeColor);
+                edge.material.opacity = 0.3;
+            });
+
+            // Clear tracking variables
+            highlightedNode = null;
+            highlightedNeighbors.clear();
+            highlightedEdges.clear();
+            document.getElementById('nodeInfo').style.display = 'none';
+
+            // --- HIGHLIGHT ---
+            if (highlight) {
+                const neighbors = new Set();
+                const edgesToHighlight = new Set();
+                const neighborIds = [];
+
+                // Find direct neighbors and their edges
+                graphData.links.forEach(link => {
+                    const sourceId = link.source.id || link.source;
+                    const targetId = link.target.id || link.target;
+                    let neighborId = null;
+
+                    if (sourceId === nodeId) neighborId = targetId;
+                    else if (targetId === nodeId) neighborId = sourceId;
+
+                    if (neighborId !== null) {
+                        neighbors.add(neighborId);
+                        neighborIds.push(neighborId);
+                        const edgeObj = edgeObjects.find(e => 
+                            (e.userData.source === sourceId && e.userData.target === targetId) ||
+                            (e.userData.source === targetId && e.userData.target === sourceId)
+                        );
+                        if(edgeObj) edgesToHighlight.add(edgeObj);
+                    }
+                });
+
+                // Show info panel
                 document.getElementById('infoNodeId').textContent = node.id;
                 document.getElementById('infoStatus').textContent = node.infected ? 'Infected' : 'Healthy';
                 document.getElementById('infoStatus').className = node.infected ? 'status-infected' : 'status-healthy';
                 document.getElementById('infoDegree').textContent = node.degree;
-                document.getElementById('infoNeighbors').textContent = neighborIds.join(', ');
-                nodeInfoDiv.style.display = 'block';
-                
-            } else {
-                linkElements.each(function(d) {
-                    const link = d3.select(this);
-                    const sourceInfected = d.source.infected;
-                    const targetInfected = d.target.infected;
-                    link
-                        .classed('highlighted', false)
-                        .attr('stroke', () => {
-                            if (sourceInfected && targetInfected) return '#ff6b6b';
-                            if (sourceInfected || targetInfected) return '#ffa07a';
-                            return '#999';
-                        })
-                        .attr('stroke-opacity', 0.3)
-                        .attr('stroke-width', () => {
-                            if (sourceInfected && targetInfected) return 2;
-                            if (sourceInfected || targetInfected) return 1.5;
-                            return 1;
-                        })
-                        .style('filter', 'none');
+                document.getElementById('infoNeighbors').textContent = neighborIds.join(', ') || 'None';
+                document.getElementById('nodeInfo').style.display = 'block';
+
+                // Fade out non-connected elements
+                nodeObjects.forEach(obj => {
+                    if (obj.userData.nodeId !== nodeId && !neighbors.has(obj.userData.nodeId)) {
+                        obj.material.opacity = 0.08;
+                        obj.material.transparent = true;
+                    }
+                });
+                edgeObjects.forEach(obj => {
+                    if (!edgesToHighlight.has(obj)) {
+                        obj.material.opacity = 0.08;
+                    }
                 });
 
-                nodeElements.style('opacity', 1);
-                
-                // Hide node info panel
-                document.getElementById('nodeInfo').style.display = 'none';
+                // Highlight the central node with strong glow
+                const centralNodeObject = nodeObjects.find(o => o.userData.nodeId === nodeId);
+                if (centralNodeObject) {
+                    centralNodeObject.material.color.set(0x006400); // Dark green for hovered node
+                    centralNodeObject.material.emissive.set(0x00ff00); // Bright green glow
+                    centralNodeObject.material.emissiveIntensity = 1.2;
+                    centralNodeObject.material.shininess = 120;
+                    centralNodeObject.scale.set(1.6, 1.6, 1.6);
+                    centralNodeObject.material.opacity = 1.0;
+                    centralNodeObject.material.transparent = true;
+                }
+
+                // Highlight neighbors with yellow glow
+                neighbors.forEach(neighborId => {
+                    const neighborObject = nodeObjects.find(o => o.userData.nodeId === neighborId);
+                    if (neighborObject) {
+                        neighborObject.material.color.set(0xffff00); // Yellow for neighboring nodes
+                        neighborObject.material.emissive.set(0xffff00);
+                        neighborObject.material.emissiveIntensity = 1.0;
+                        neighborObject.scale.set(1.3, 1.3, 1.3);
+                        neighborObject.material.opacity = 1.0;
+                        neighborObject.material.transparent = true;
+                    }
+                });
+
+                // Highlight edges with golden glow
+                edgesToHighlight.forEach(edge => {
+                    edge.material.color.set(0xffd700); // Gold color for connecting edges
+                    edge.material.opacity = 0.95;
+                });
+
+                // Store what we've highlighted
+                highlightedNode = nodeId;
+                highlightedNeighbors = neighbors;
+                highlightedEdges = edgesToHighlight;
             }
         }
 
-        // Update graph colors
+        // Update graph colors (Three.js version)
         function updateGraph() {
-            if (!graphData || !nodeElements || !linkElements) return;
+            if (!graphData) return;
             
-            // Update node colors and sizes
-            nodeElements
-                .attr('fill', d => d.infected ? '#f56565' : '#48bb78');
-            
-            // Update link colors
-            linkElements
-                .attr('stroke', d => {
-                    const sourceInfected = d.source.infected;
-                    const targetInfected = d.target.infected;
-                    if (sourceInfected && targetInfected) return '#ff6b6b';
-                    if (sourceInfected || targetInfected) return '#ffa07a';
-                    return '#999';
-                })
-                .attr('stroke-width', d => {
-                    const sourceInfected = d.source.infected;
-                    const targetInfected = d.target.infected;
-                    if (sourceInfected && targetInfected) return 2;
-                    if (sourceInfected || targetInfected) return 1.5;
-                    return 1;
+            if (currentVizType === '2d') {
+                // Update 2D graph
+                if (!nodeObjects || !edgeObjects) return;
+                
+                nodeObjects
+                    .attr('class', d => d.infected ? 'node infected' : 'node healthy')
+                    .attr('r', d => Math.sqrt(d.degree || 0) * 1.2 + 5);
+                    
+            } else {
+                // Update 3D graph
+                if (!nodeObjects || !edgeObjects) return;
+                
+                nodeObjects.forEach(obj => {
+                    const node = obj.userData.node;
+                    obj.material.color.set(node.infected ? infectedColor : healthyColor);
+                    obj.material.emissive.setHex(0x000000); // No base emissive color
                 });
+                
+                // Update edge colors
+                edgeObjects.forEach(edge => {
+                    edge.material.color.set(edgeColor);
+                });
+            }
         }
 
         // Update infection state
@@ -973,8 +1387,212 @@
             const infectionRate = ((stats.infection_rate || 0) * 100).toFixed(1);
             document.getElementById('infectionRate').textContent = infectionRate + '%';
             document.getElementById('infectionProgress').style.width = infectionRate + '%';
+            
+            // Update chart data
+            updateChartData(stats);
         }
-
+        
+        // Initialize the infection chart
+        function initializeChart() {
+            const ctx = document.getElementById('infection-chart');
+            
+            if (infectionChart) {
+                infectionChart.destroy();
+            }
+            
+            infectionChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: chartData.timeSteps,
+                    datasets: [
+                        {
+                            label: 'Infected',
+                            data: chartData.infected,
+                            borderColor: '#ef4444',
+                            backgroundColor: 'rgba(239, 68, 68, 0.25)',
+                            borderWidth: 4,
+                            fill: true,
+                            tension: 0.3,
+                            pointRadius: 5,
+                            pointHoverRadius: 8,
+                            pointBackgroundColor: '#ef4444',
+                            pointBorderColor: '#fff',
+                            pointBorderWidth: 2,
+                            pointHoverBorderWidth: 3,
+                            shadowOffsetX: 0,
+                            shadowOffsetY: 4,
+                            shadowBlur: 12,
+                            shadowColor: 'rgba(239, 68, 68, 0.5)'
+                        },
+                        {
+                            label: 'Healthy',
+                            data: chartData.healthy,
+                            borderColor: '#10b981',
+                            backgroundColor: 'rgba(16, 185, 129, 0.25)',
+                            borderWidth: 4,
+                            fill: true,
+                            tension: 0.3,
+                            pointRadius: 5,
+                            pointHoverRadius: 8,
+                            pointBackgroundColor: '#10b981',
+                            pointBorderColor: '#fff',
+                            pointBorderWidth: 2,
+                            pointHoverBorderWidth: 3,
+                            shadowOffsetX: 0,
+                            shadowOffsetY: 4,
+                            shadowBlur: 12,
+                            shadowColor: 'rgba(16, 185, 129, 0.5)'
+                        },
+                        {
+                            label: 'Recovered',
+                            data: chartData.recovered,
+                            borderColor: '#3b82f6',
+                            backgroundColor: 'rgba(59, 130, 246, 0.25)',
+                            borderWidth: 4,
+                            fill: true,
+                            tension: 0.3,
+                            pointRadius: 5,
+                            pointHoverRadius: 8,
+                            pointBackgroundColor: '#3b82f6',
+                            pointBorderColor: '#fff',
+                            pointBorderWidth: 2,
+                            pointHoverBorderWidth: 3,
+                            shadowOffsetX: 0,
+                            shadowOffsetY: 4,
+                            shadowBlur: 12,
+                            shadowColor: 'rgba(59, 130, 246, 0.5)'
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: {
+                        intersect: false,
+                        mode: 'index'
+                    },
+                    plugins: {
+                        legend: {
+                            display: true,
+                            position: 'top',
+                            labels: {
+                                usePointStyle: true,
+                                pointStyle: 'circle',
+                                padding: 20,
+                                font: {
+                                    size: 14,
+                                    weight: 'bold',
+                                    family: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
+                                },
+                                color: '#e2e8f0',
+                                boxWidth: 12,
+                                boxHeight: 12
+                            }
+                        },
+                        tooltip: {
+                            backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                            padding: 12,
+                            titleFont: {
+                                size: 14,
+                                weight: 'bold'
+                            },
+                            bodyFont: {
+                                size: 13
+                            },
+                            displayColors: true
+                        }
+                    },
+                    scales: {
+                        x: {
+                            title: {
+                                display: true,
+                                text: 'Time Step',
+                                font: {
+                                    size: 14,
+                                    weight: 'bold'
+                                },
+                                color: '#cbd5e1',
+                                padding: { top: 10 }
+                            },
+                            grid: {
+                                color: 'rgba(148, 163, 184, 0.15)',
+                                lineWidth: 1
+                            },
+                            ticks: {
+                                color: '#94a3b8',
+                                font: {
+                                    size: 12
+                                },
+                                padding: 8
+                            },
+                            border: {
+                                color: 'rgba(148, 163, 184, 0.3)'
+                            }
+                        },
+                        y: {
+                            beginAtZero: true,
+                            title: {
+                                display: true,
+                                text: 'Number of Nodes',
+                                font: {
+                                    size: 14,
+                                    weight: 'bold'
+                                },
+                                color: '#cbd5e1',
+                                padding: { bottom: 10 }
+                            },
+                            grid: {
+                                color: 'rgba(148, 163, 184, 0.15)',
+                                lineWidth: 1
+                            },
+                            ticks: {
+                                color: '#94a3b8',
+                                font: {
+                                    size: 12
+                                },
+                                padding: 8
+                            },
+                            border: {
+                                color: 'rgba(148, 163, 184, 0.3)'
+                            }
+                        }
+                    },
+                    animation: {
+                        duration: 300
+                    }
+                }
+            });
+        }
+        
+        // Update chart with new data
+        function updateChartData(stats) {
+            if (!infectionChart) return;
+            
+            const timeStep = stats.time_step || 0;
+            
+            // Only add new data point if time step is new
+            if (chartData.timeSteps.length === 0 || timeStep > chartData.timeSteps[chartData.timeSteps.length - 1]) {
+                chartData.timeSteps.push(timeStep);
+                chartData.infected.push(stats.infected_count || 0);
+                chartData.healthy.push(stats.healthy_count || 0);
+                chartData.recovered.push(stats.recovered_count || 0);
+                
+                // Limit to last 50 data points for performance
+                if (chartData.timeSteps.length > 50) {
+                    chartData.timeSteps.shift();
+                    chartData.infected.shift();
+                    chartData.healthy.shift();
+                    chartData.recovered.shift();
+                }
+                
+                infectionChart.data.labels = chartData.timeSteps;
+                infectionChart.data.datasets[0].data = chartData.infected;
+                infectionChart.data.datasets[1].data = chartData.healthy;
+                infectionChart.data.datasets[2].data = chartData.recovered;
+                infectionChart.update('none'); // Update without animation for smoothness
+            }
+        }
+        
         // Auto-generate network on load
         window.addEventListener('load', () => {
             console.log('Page loaded, initializing network...');
