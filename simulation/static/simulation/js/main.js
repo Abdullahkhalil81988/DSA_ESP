@@ -18,7 +18,7 @@ let chartData = {
     healthy: [],
     recovered: []
 };
-let currentVizType = '3d';
+let currentVizType = '2d';
 let d3Simulation = null;
 
 // --- NEW Highlighting Colors ---

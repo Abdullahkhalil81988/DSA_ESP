@@ -1,0 +1,14 @@
+# Core Framework
+Django==5.2.8
+
+# DSA & Graph Libraries
+networkx==3.2.1
+numpy==1.26.4
+
+# Data Visualization (Optional - for analysis)
+matplotlib==3.8.3
+
+# Development Tools (Optional)
+# Uncomment for development
+# pylint==3.0.3
+# black==24.2.0

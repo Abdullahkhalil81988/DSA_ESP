@@ -3,8 +3,8 @@ from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 import json
 
-from .network_generator import NetworkGenerator
-from .disease_engine import DiseaseSimulation
+from .algorithms.network_generator import NetworkGenerator
+from .algorithms.disease_engine import DiseaseSimulation
 
 # Global simulation state (in production, use session or database)
 simulation_state = {
