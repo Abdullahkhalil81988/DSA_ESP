@@ -406,7 +406,6 @@ esp/
 ## 📈 Future Improvements
 
 Potential enhancements:
-- Recovery mechanism (SIR model)
 - Vaccination strategies
 - Network comparison tools
 - Export simulation data

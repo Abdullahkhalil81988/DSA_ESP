@@ -15,8 +15,7 @@ let infectionChart = null;
 let chartData = {
     timeSteps: [],
     infected: [],
-    healthy: [],
-    recovered: []
+    healthy: []
 };
 let currentVizType = '2d';
 let d3Simulation = null;
@@ -24,7 +23,6 @@ let d3Simulation = null;
 // --- NEW Highlighting Colors ---
 const healthyColor = new THREE.Color("#48bb78");
 const infectedColor = new THREE.Color("#f56565");
-const recoveredColor = new THREE.Color("#4299e1");
 const edgeColor = new THREE.Color("#353d4f"); // Darker edge
 
 const highlightNodeColor = new THREE.Color("#fafad2"); // Light Goldenrod Yellow
@@ -116,8 +114,7 @@ async function initializeNetwork() {
             chartData = {
                 timeSteps: [0],
                 infected: [0],
-                healthy: [nNodes],
-                recovered: [0]
+                healthy: [nNodes]
             };
             initializeChart();
         } else {
@@ -247,20 +244,18 @@ async function resetSimulation() {
             });
             updateGraph();
             updateStats({total_nodes: graphData.nodes.length, infected_count: 0, 
-                        healthy_count: graphData.nodes.length, infection_rate: 0, time_step: 0, recovered_count: 0});
+                        healthy_count: graphData.nodes.length, infection_rate: 0, time_step: 0});
             
             // Reset chart
             chartData = {
                 timeSteps: [0],
                 infected: [0],
-                healthy: [graphData.nodes.length],
-                recovered: [0]
+                healthy: [graphData.nodes.length]
             };
             if (infectionChart) {
                 infectionChart.data.labels = chartData.timeSteps;
                 infectionChart.data.datasets[0].data = chartData.infected;
                 infectionChart.data.datasets[1].data = chartData.healthy;
-                infectionChart.data.datasets[2].data = chartData.recovered;
                 infectionChart.update();
             }
         }
@@ -861,25 +856,6 @@ function initializeChart() {
                     shadowOffsetY: 4,
                     shadowBlur: 12,
                     shadowColor: 'rgba(16, 185, 129, 0.5)'
-                },
-                {
-                    label: 'Recovered',
-                    data: chartData.recovered,
-                    borderColor: '#3b82f6',
-                    backgroundColor: 'rgba(59, 130, 246, 0.25)',
-                    borderWidth: 4,
-                    fill: true,
-                    tension: 0.3,
-                    pointRadius: 5,
-                    pointHoverRadius: 8,
-                    pointBackgroundColor: '#3b82f6',
-                    pointBorderColor: '#fff',
-                    pointBorderWidth: 2,
-                    pointHoverBorderWidth: 3,
-                    shadowOffsetX: 0,
-                    shadowOffsetY: 4,
-                    shadowBlur: 12,
-                    shadowColor: 'rgba(59, 130, 246, 0.5)'
                 }
             ]
         },
@@ -994,20 +970,17 @@ function updateChartData(stats) {
         chartData.timeSteps.push(timeStep);
         chartData.infected.push(stats.infected_count || 0);
         chartData.healthy.push(stats.healthy_count || 0);
-        chartData.recovered.push(stats.recovered_count || 0);
         
         // Limit to last 50 data points for performance
         if (chartData.timeSteps.length > 50) {
             chartData.timeSteps.shift();
             chartData.infected.shift();
             chartData.healthy.shift();
-            chartData.recovered.shift();
         }
         
         infectionChart.data.labels = chartData.timeSteps;
         infectionChart.data.datasets[0].data = chartData.infected;
         infectionChart.data.datasets[1].data = chartData.healthy;
-        infectionChart.data.datasets[2].data = chartData.recovered;
         infectionChart.update('none'); // Update without animation for smoothness
     }
 }
